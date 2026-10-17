@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How Does an Aircraft Carrier Launch a Jet in Seconds?</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1117;--fg:#e8edf2;--ac:#4aa3ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:10px}
+#stage{position:relative;height:min(82vh,960px);aspect-ratio:9/16;background:#000;border-radius:6px;overflow:hidden}
+#out{width:100%;height:100%;display:block}
+#msg{position:absolute;inset:auto 0 0 0;padding:6px 8px;font-size:12px;background:#000a;white-space:pre-wrap}
+#ui{width:min(420px,96vw);display:flex;flex-direction:column;gap:8px}
+button,select{background:#1c2733;color:var(--fg);border:1px solid #33465a;border-radius:5px;padding:6px 10px;font:inherit}
+button:hover{border-color:var(--ac)}button.on{background:#17406d}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}#seek{flex:1;width:100%}
+#scenes{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+#info{font:11px ui-monospace,monospace;white-space:pre-wrap;background:#0008;padding:6px;border-radius:5px;max-height:240px;overflow:auto;display:none}
+h1{font-size:15px;margin:0}small{opacity:.7}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head><body>
+<div id="stage"><canvas id="out"></canvas><div id="msg">Loading assets…</div></div>
+<div id="ui">
+<h1>How Does an Aircraft Carrier Launch a Jet in Seconds?</h1>
+<small>Steam-catapult explainer · 82 s · 9:16 · synthetic procedural audio · captions only (no voice-over)</small>
+<div class="row"><button id="play">Play</button><button id="pause">Pause</button><button id="restart">Restart</button><span id="time">0:00.0 / 1:22.0</span></div>
+<input id="seek" type="range" min="0" max="82" step="0.01" value="0">
+<div id="scenes"></div>
+<div class="row"><button id="snd">Sound: off</button><input id="vol" type="range" min="0" max="1" step="0.01" value="0.6" style="width:90px">
+<select id="q"><option value="0">Performance</option><option value="1" selected>Balanced</option><option value="2">High quality</option></select>
+<button id="insp">Inspect</button><button id="rec">Record WebM</button></div>
+<div id="info"></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
+import {RGBELoader} from 'three/addons/loaders/RGBELoader.js';
+
+const FILES={carrier:'uss_nimitz_cvn-68_aircraft_carrier.glb',jet:'boeing_fa-18f_super_hornet_-_free-compressed__2_.glb',ocean:'ocean_wave_-__wmaya__1_.glb',hdr:'table_mountain_2_puresky_2k.hdr'};
+//<TL>
+const DUR=82,SC=[0,8,16,24,32,40,49,57,65,73,82];
+const NAMES=['Too short','Connect','Holdback','Deflector','Prepare','Steam cutaway','Launch','Hundreds of feet','Water brake','Full system'];
+const CAPS=[
+"An F/A-18 needs a lot of speed to take off. But an aircraft carrier gives it only a few hundred feet of runway. So how does it get airborne in seconds?",
+"First, the jet rolls into position. Its nose-wheel launch bar locks onto a shuttle hidden in the catapult track.",
+"A holdback attachment keeps the aircraft from moving while its engines build power. It must release when the catapult launches.",
+"Behind the jet, a heavy jet-blast deflector rises. It redirects the engine exhaust away from the deck crew and equipment.",
+"The jet increases power, and the launch system is prepared. But the aircraft's engines alone aren't doing the whole job.",
+"Below the deck, high-pressure steam enters the catapult cylinders. The pressure drives pistons connected to the shuttle above.",
+"When the launch is authorised, the catapult releases its stored energy. The shuttle surges forward, and the nose gear transmits that force to the jet.",
+"Within seconds, the catapult has accelerated the aircraft across the deck to the required launch speed. Then the jet separates and flies away.",
+"But the shuttle is still racing along the track. A water-brake system absorbs its energy, slows it down, and helps prepare the catapult for the next launch.",
+"The steam catapult supplies the extra acceleration, the shuttle transfers it through the launch bar, and the jet's own engines provide thrust. That's how a fighter takes off from a ship in seconds."];
+const L=95,TRK=140,NG=6.4,SH0=NG+1.4,GROUND=2.43,BRK=22,V0=2*L/6;
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),ss=(a,b,t)=>{const u=cl((t-a)/(b-a));return u*u*(3-2*u)},lp=(a,b,u)=>a+(b-a)*u;
+const sceneOf=t=>{for(let i=0;i<10;i++)if(t<SC[i+1])return i;return 9};
+// All animation state is a pure function of timeline time t (lane frame: +x = launch direction, y up, metres).
+function state(t){
+ const u=cl((t-54)/6),tau=Math.max(0,t-60);
+ let jx=-26*(1-ss(8,12.2,t)),jy=0,pitch=0;
+ if(t>=54&&t<=60)jx=L*u*u;
+ else if(t>60){jx=L+V0*6*(1-Math.exp(-tau/6))+8*tau;jy=1.5*tau+0.12*tau*tau;pitch=0.2*ss(0,3,tau);} // post-separation speed eased for framing (not to scale)
+ else if(t>53)pitch=-0.01*ss(53,54,t);
+ const bar=t<60?ss(12.4,14,t):1-ss(60,61.5,t);
+ const hb=t<54?0:ss(54,54.5,t);
+ const w=cl((t-60)/7);let sh=t<54?SH0:jx+SH0;
+ if(t>60){sh=L+SH0+BRK*(1-(1-w)*(1-w));}
+ if(t>69)sh=lp(L+SH0+BRK,SH0,ss(69,77,t));
+ const E=(0.15+0.25*ss(16,24,t)+0.35*ss(24,40,t)+0.25*ss(49,54,t))*(1-0.5*ss(62,80,t));
+ const press=(t>=40&&t<49)?ss(40,42,t):(t>=54&&t<60?1:0);
+ return{jx,jy,pitch,bar,hb,sh,E,press,jbd:ss(24,29,t)*(1-ss(74,79,t)),
+  win:[ss(39,40.5,t)*(1-ss(48,49,t)),ss(64,65.5,t)*(1-ss(70,71,t))],gearUp:t>62.5,tau,
+  vel:t>=54&&t<=60?2*L*u/6:0,brakeV:t>60?BRK*2*(1-w)/7*(w<1?1:0):0,reset:t>69&&t<77?1:0};
+}
+// camera keys: [t, px,py,pz, lx,ly,lz] in lane frame. Tracked window follows the jet (see camAt).
+const K=[[0,-62,-14,75,-26,3,0],[5,-56,8,9,-24,2,0],[8,-38,6,12,-14,1.5,0],[12,6,3,9,6.5,.5,0],[15.9,2.8,1.6,5.2,7.5,.3,0],[16,3,1.8,5.5,4.8,.6,0],[23,3.5,2.2,6.5,4.5,.7,0],
+[24,-26,4.5,5,-8,2,0],[31,-28,5,6,-9,2,0],[32,-9,2.5,4.5,-6.6,1,0],[38,4.5,3,8,6.4,.8,0],[40,17,12,7,18,-2,0],[45,22,10,5,22,-1.5,0],[49,-4,6,9,8,1,0],
+[52,-2,2.2,7,7,.6,0],[57,6,2.4,7.5,12,1,0],[60,6,3,12,18,2,0],[63,10,4,16,26,5,0],[66,L+6,7,7,L+4,-1.5,0],[69,L+2,6,6,L-2,-1.7,0],
+[72,60,18,12,70,0,0],[73,L-60,30,70,L+10,10,0],[82,L-200,60,60,L+100,50,0]];
+function camAt(t,S){
+ let i=0;while(i<K.length-2&&t>=K[i+1][0])i++;
+ const a=K[i],b=K[i+1],u=ss(a[0],b[0],t),r=[];
+ for(let j=1;j<7;j++)r.push(lp(a[j],b[j],u));
+ const wt=ss(48.5,50,t)*(1-ss(63,66,t));
+ r[0]+=wt*S.jx;r[3]+=wt*S.jx;return r;
+}
+//</TL>
+// ---------- renderer / scene ----------
+const out=document.getElementById('out'),o2=out.getContext('2d'),msg=document.getElementById('msg');
+const gl=document.createElement('canvas');
+const renderer=new THREE.WebGLRenderer({canvas:gl,antialias:true});
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.85;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.localClippingEnabled=true;
+const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xb4c8d8,600,12000);
+const cam=new THREE.PerspectiveCamera(48,9/16,0.15,40000);
+const sun=new THREE.DirectionalLight(0xfff1dd,2.6);sun.castShadow=true;sun.shadow.bias=-0.0003;Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:600});scene.add(sun,sun.target);
+scene.add(new THREE.HemisphereLight(0xcfe3ff,0x3a4a55,0.35));
+const lane=new THREE.Group();scene.add(lane);
+const QS=[[0.5,1024],[0.75,2048],[1,2048]];let qi=1;
+function applyQ(){qi=+document.getElementById('q').value;const W=Math.round(1080*QS[qi][0]),H=Math.round(1920*QS[qi][0]);
+ out.width=W;out.height=H;renderer.setSize(W,H,false);sun.shadow.mapSize.set(QS[qi][1],QS[qi][1]);sun.shadow.map?.dispose();sun.shadow.map=null;}
+const status=[];const say=s=>{status.push(s);msg.textContent=status.join('\n')};
+// ---------- loading ----------
+const draco=new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/');
+const gltf=new GLTFLoader().setDRACOLoader(draco);
+const load=(k)=>gltf.loadAsync(FILES[k]).catch(e=>{say('FAILED '+FILES[k]+': '+e.message);return null});
+const G={cfg:{}};let mixer=null,clip=null,jet=null,jetGroup=new THREE.Group(),carrier=null;
+const clipPlanes=[new THREE.Plane(new THREE.Vector3(1,0,0),0),new THREE.Plane(new THREE.Vector3(-1,0,0),0),new THREE.Plane(new THREE.Vector3(0,0,1),0),new THREE.Plane(new THREE.Vector3(0,0,-1),0)];
+// Measure the imported carrier geometry (inches -> metres) to locate deck height, bow end, island, lane.
+function analyseCarrier(root){
+ const bins=new Map();const v=[new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()];const tris=[];
+ let hi=[0,0,0];root.updateMatrixWorld(true);
+ root.traverse(m=>{if(!m.isMesh)return;const p=m.geometry.attributes.position,ix=m.geometry.index;const n=ix?ix.count:p.count;
+  for(let i=0;i<n;i+=3){for(let k=0;k<3;k++){v[k].fromBufferAttribute(p,ix?ix.getX(i+k):i+k).applyMatrix4(m.matrixWorld);}
+   const e1=v[1].clone().sub(v[0]),e2=v[2].clone().sub(v[0]),c=e1.cross(e2),A=c.length()/2;if(A<1e-6)continue;
+   if(Math.abs(c.y)/c.length()>0.995&&v[0].y>12&&v[0].y<32){const key=Math.round(v[0].y*4)/4;bins.set(key,(bins.get(key)||0)+A);tris.push([key,v[0].x,v[0].z,v[1].x,v[2].x,v[1].z,v[2].z]);}
+   if(v[0].y>38){hi[0]+=v[0].x;hi[1]+=v[0].z;hi[2]++;}}});
+ let dk=0,best=0;for(const[k,a]of bins)if(a>best){best=a;dk=k;}
+ const d=tris.filter(t=>Math.abs(t[0]-dk)<0.3);let xmin=1e9,xmax=-1e9;
+ d.forEach(t=>{for(const x of[t[1],t[3],t[4]]){xmin=Math.min(xmin,x);xmax=Math.max(xmax,x);}});
+ const isl=hi[2]?{x:hi[0]/hi[2],z:hi[1]/hi[2]}:{x:xmax,z:0};
+ const bowSign=isl.x>(xmin+xmax)/2?-1:1,bowX=bowSign>0?xmax:xmin;
+ let zmin=1e9,zmax=-1e9;d.forEach(t=>{if(Math.abs(t[1]-(bowX-bowSign*100))<10){for(const z of[t[2],t[5],t[6]]){zmin=Math.min(zmin,z);zmax=Math.max(zmax,z);}}});
+ const cz=(zmin+zmax)/2,away=Math.sign(cz-isl.z)||1;
+ return{deckY:dk,bowSign,bowX,xmin,xmax,laneZ:cz+away*9,island:isl,zmin,zmax};
+}
+async function build(){
+ const Q=new URLSearchParams(location.search);
+ const [c,j,o]=await Promise.all([load('carrier'),load('jet'),load('ocean')]);
+ new RGBELoader().loadAsync(FILES.hdr).then(t=>{t.mapping=THREE.EquirectangularReflectionMapping;scene.environment=new THREE.PMREMGenerator(renderer).fromEquirectangular(t).texture;scene.background=t;say('HDR loaded (RGBE)');}).catch(e=>{say('HDR failed: '+e.message);scene.background=new THREE.Color(0x9fc4e6);});
+ if(c){carrier=c.scene;carrier.scale.setScalar(0.0254);scene.add(carrier);carrier.updateMatrixWorld(true);
+  carrier.traverse(m=>{if(m.isMesh){m.castShadow=m.receiveShadow=true;(Array.isArray(m.material)?m.material:[m.material]).forEach(x=>{x.clippingPlanes=clipPlanes;x.clipIntersection=true;x.side=THREE.DoubleSide;});}});
+  const a=analyseCarrier(carrier);G.cfg=a;
+  if(Q.get('laneZ'))a.laneZ=+Q.get('laneZ');if(Q.get('deckY'))a.deckY=+Q.get('deckY');
+  lane.position.set(a.bowX-a.bowSign*(L+NG+2),a.deckY,a.laneZ);lane.rotation.y=a.bowSign>0?0:Math.PI;
+  say(`Carrier: deckY=${a.deckY}m bowSign=${a.bowSign} laneZ=${a.laneZ.toFixed(1)} (auto-detected, tune with ?laneZ=&deckY=)`);
+ }else{say('No carrier: lane placed at origin');lane.position.set(0,18,0);G.cfg={deckY:18,bowSign:1,xmin:-100,xmax:200,laneZ:0};}
+ if(j){jet=j.scene;jet.scale.setScalar(0.1);jet.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});jetGroup.add(jet);G.on=[],G.off=[];
+  jet.traverse(m=>{const n=m.name||'';if(n.includes('landingOn'))G.on.push(m);if(n.includes('landingOff'))G.off.push(m);});}
+ else say('No jet: nothing to launch');
+ lane.add(jetGroup);
+ // ocean: imported vertex-animated frames (Z-up, ~30 units), scaled, plus a far water plane
+ const pivot=new THREE.Group();pivot.rotation.x=-Math.PI/2;
+ if(o){const g=o.scene;g.scale.set(14,14,0.18);g.position.z=-2.5*0.18;pivot.add(g);const cx=(G.cfg.xmin+G.cfg.xmax)/2;pivot.position.set(cx,0,G.cfg.laneZ||0);scene.add(pivot);
+  mixer=new THREE.AnimationMixer(g);if(o.animations[0]){clip=o.animations[0];mixer.clipAction(clip).play();}}
+ const water=new THREE.Mesh(new THREE.PlaneGeometry(60000,60000),new THREE.MeshStandardMaterial({color:0x0b3a55,roughness:0.12,metalness:0.1}));water.rotation.x=-Math.PI/2;water.position.y=-0.45;water.receiveShadow=true;scene.add(water);
+ buildMech();
+ G.ready=true;say('Ready. Press Play.');
+}
+// ---------- procedural catapult hardware (lane frame; overlaid on deck, not cut into the imported mesh) ----------
+const steel=new THREE.MeshStandardMaterial({color:0x8b9096,metalness:0.85,roughness:0.35}),dark=new THREE.MeshStandardMaterial({color:0x1b1d21,roughness:0.8}),
+ orange=new THREE.MeshStandardMaterial({color:0xd9722a,metalness:0.4,roughness:0.5}),glass=new THREE.MeshStandardMaterial({color:0x9ad,transparent:true,opacity:0.22,side:THREE.DoubleSide,roughness:0.1}),
+ water=new THREE.MeshStandardMaterial({color:0x2a6fb0,transparent:true,opacity:0.5,roughness:0.05});
+const cyl=(r,m=steel)=>new THREE.Mesh(new THREE.CylinderGeometry(r,r,1,14),m);
+const box=(x,y,z,m=steel)=>new THREE.Mesh(new THREE.BoxGeometry(x,y,z),m);
+const M={};const _u=new THREE.Vector3(0,1,0),_d=new THREE.Vector3();
+function seg(m,a,b){_d.subVectors(b,a);const len=_d.length();m.position.copy(a).addScaledVector(_d,.5);m.quaternion.setFromUnitVectors(_u,_d.normalize());m.scale.set(1,len,1);}
+function buildMech(){
+ // track: slot + rails along the lane, sitting 3 cm above the deck surface
+ const slot=box(TRK,0.02,0.34,dark);slot.position.set(TRK/2,0.03,0);lane.add(slot);
+ for(const z of[-0.3,0.3]){const r=box(TRK,0.07,0.07);r.position.set(TRK/2,0.06,z);lane.add(r);}
+ for(let x=2;x<TRK;x+=6){const p=box(0.5,0.05,1.0,dark);p.position.set(x,0.03,0);lane.add(p);}
+ // shuttle (visible tongue + housing) and launch bar, holdback
+ M.shuttle=new THREE.Group();const sb=box(0.9,0.16,0.5,orange);sb.position.y=0.1;M.shuttle.add(sb);const tn=box(0.3,0.12,0.2,steel);tn.position.set(0.15,0.2,0);M.shuttle.add(tn);lane.add(M.shuttle);
+ M.bar=cyl(0.045);lane.add(M.bar);M.hbLink=cyl(0.04,orange);lane.add(M.hbLink);const hbA=box(0.3,0.08,0.3,orange);hbA.position.set(3.2,0.05,0);lane.add(hbA);
+ // jet-blast deflector: hinged panel + two actuators
+ M.jbd=new THREE.Group();M.jbd.position.set(-9.5,0.05,0);const pan=box(4.2,0.18,8.5);pan.position.x=-2.1;M.jbd.add(pan);
+ for(let i=-3;i<=3;i+=1.5){const rib=box(4.2,0.12,0.08,dark);rib.position.set(-2.1,0.14,i);M.jbd.add(rib);}lane.add(M.jbd);
+ M.act=[cyl(0.1),cyl(0.1)];M.act.forEach(a=>lane.add(a));
+ // cutaway pit: schematic (long under-deck volume, only visible through the clip window)
+ M.pit=new THREE.Group();const fl=box(TRK,0.1,6.4,dark);fl.position.set(TRK/2,-3.3,0);M.pit.add(fl);
+ for(const z of[-3.2,3.2]){const w=box(TRK,3.3,0.1,new THREE.MeshStandardMaterial({color:0x44484f,roughness:0.9}));w.position.set(TRK/2,-1.65,z);M.pit.add(w);}
+ M.cyls=[];for(const z of[-0.9,0.9]){const c=cyl(0.34,glass);c.rotation.z=Math.PI/2;c.scale.set(1,TRK-10,1);c.position.set(TRK/2,-1.7,z);M.pit.add(c);
+  const pr=cyl(0.3,steel);pr.rotation.z=Math.PI/2;pr.scale.set(1,0.7,1);M.cyls.push(pr);M.pit.add(pr);
+  const sup=box(1,0.5,0.3,dark);sup.position.set(20,-2.5,z);M.pit.add(sup);const sup2=sup.clone();sup2.position.x=70;M.pit.add(sup2);}
+ M.xhead=box(0.4,0.3,2.2,orange);M.pit.add(M.xhead);M.post=box(0.25,1.6,0.3,steel);M.pit.add(M.post);
+ M.spear=cyl(0.1,steel);M.spear.rotation.z=Math.PI/2;M.spear.scale.set(1,10,1);M.pit.add(M.spear);
+ const tank=box(28,2,5.6,water);tank.position.set(TRK-14,-2.2,0);M.pit.add(tank);
+ const tc=box(28,2.05,5.7,new THREE.MeshStandardMaterial({color:0x445,wireframe:true}));tc.position.copy(tank.position);M.pit.add(tc);
+ M.cable=cyl(0.03,dark);M.pit.add(M.cable);for(const x of[-1,TRK+1]){const pu=cyl(0.5,steel);pu.rotation.x=Math.PI/2;pu.scale.set(1,0.3,1);pu.position.set(x,-2.4,0);M.pit.add(pu);}
+ M.arrows=[];for(let i=0;i<10;i++){const a=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.5,10),new THREE.MeshBasicMaterial({color:0xdfe9f2,transparent:true,opacity:0.8}));a.rotation.z=-Math.PI/2;M.pit.add(a);M.arrows.push(a);}
+ lane.add(M.pit);
+ // deterministic exhaust particles (positions are a pure function of i and t)
+ const N=500,geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(N*3),3));
+ M.ex=new THREE.Points(geo,new THREE.PointsMaterial({color:0xd8cfc6,size:0.55,transparent:true,opacity:0.1,depthWrite:false}));M.ex.frustumCulled=false;lane.add(M.ex);M.N=N;
+}
+const hash=i=>{const s=Math.sin(i*127.1+311.7)*43758.5453;return s-Math.floor(s)};
+const V=(x,y,z)=>new THREE.Vector3(x,y,z),tmp=new THREE.Vector3();
+function applyState(t){
+ const S=state(t);if(!G.ready)return S;
+ jetGroup.position.set(S.jx,S.jy+GROUND,0);jetGroup.rotation.z=S.pitch;
+ if(S.E>0.5&&t<54)jetGroup.position.y+=Math.sin(t*61)*0.004*S.E; // subtle engine vibration (deterministic)
+ G.on?.forEach(m=>m.visible=!S.gearUp);G.off?.forEach(m=>m.visible=S.gearUp);
+ M.shuttle.position.set(S.sh,0,0);
+ seg(M.bar,V(S.jx+NG,1.1+S.jy,0),V(S.jx+SH0,lp(0.9,0.2,S.bar)+S.jy,0));
+ // holdback link: deck anchor -> aircraft aft nose-gear fitting; after release it falls to the deck and stays behind
+ const fit0=V(NG-1,0.7,0),rest=V(4.8,0.08,0);
+ seg(M.hbLink,V(3.2,0.1,0),S.hb>0?V().lerpVectors(fit0,rest,S.hb):V(S.jx+NG-1,0.7,0));
+ M.hbLink.visible=t<57;
+ M.jbd.rotation.z=-S.jbd;const tip=V(-9.5-4.2*Math.cos(S.jbd),4.2*Math.sin(S.jbd)+0.05,0);
+ M.act.forEach((a,i)=>seg(a,V(-8.2,0.1,i?3:-3),V(-9.5-3*Math.cos(S.jbd),3*Math.sin(S.jbd)+0.1,i?3:-3)));
+ const w=S.win;M.pit.visible=(w[0]+w[1])>0.02;
+ M.xhead.position.set(S.sh,-1.5,0);M.post.position.set(S.sh,-0.8,0);M.cyls.forEach((p,i)=>p.position.set(S.sh-0.6,-1.7,i?0.9:-0.9));
+ M.spear.position.set(S.sh+6,-1.7,0);seg(M.cable,V(0,-2.4,0),V(S.sh,-2.4,0));M.cable.visible=S.reset>0;M.cable.material.opacity=1;
+ M.arrows.forEach((a,i)=>{const ph=(i/10+t*0.5)%1,base=w[0]>0.02?18:114;a.position.set(base-12+ph*24,-1.7+(i%2?0.45:-0.45),i%2?0.9:-0.9);a.visible=S.press>0.05&&w[0]+w[1]>0.02;});
+ // exhaust
+ const pa=M.ex.geometry.attributes.position,th=S.E,hit=-12.5;let n=0;
+ for(let i=0;i<M.N;i++){const side=i%2?1:-1,f=(hash(i)+t*(0.4+0.6*th)*0.5)%1,d=f*(8+26*th),ax=S.jx-6.6-d;
+  let x=ax,y=0.9+S.jy+d*0.03*hash(i+9),z=side*1.0+(hash(i+3)-0.5)*d*0.12;
+  if(S.jbd>0.5&&ax<hit&&S.jy==0){const e=hit-ax;x=hit-e*0.15;y+=e*0.95;} // deflected upward by the raised panel
+  pa.setXYZ(i,x,y,z);}
+ pa.needsUpdate=true;M.ex.material.opacity=0.14*th*(S.jy>20?0.3:1);
+ // sun follows the action; clip window; fog-safe camera
+ const wp=lane.localToWorld(V(Math.min(S.jx,L+60),0,0));sun.target.position.copy(wp);sun.position.copy(wp).add(V(-60,90,70));
+ const cx=w[0]>0.02?18:114,half=(w[0]>0.02?14*w[0]:13*w[1]),hz=3.2*Math.max(w[0],w[1]);
+ const c=lane.localToWorld(V(cx,0,0)),z0=G.cfg.laneZ||0;
+ clipPlanes[0].constant=-(c.x+half);clipPlanes[1].constant=c.x-half;clipPlanes[2].constant=-(z0+hz);clipPlanes[3].constant=z0-hz;
+ if(mixer&&clip)mixer.setTime((t*0.8)%clip.duration);
+ const k=camAt(t,S);const sgn=1;cam.position.set(k[0],k[1],k[2]*sgn);lane.localToWorld(cam.position);cam.lookAt(lane.localToWorld(V(k[3],k[4],k[5])));
+ return S;
+}
+// ---------- captions + labels drawn into the recorded canvas ----------
+const LAB=[[12.5,16,'LAUNCH BAR (nose gear)',S=>V(S.jx+NG+0.6,0.6,0)],[13,24,'CATAPULT SHUTTLE',S=>V(S.sh,0.3,0)],[16,24,'HOLDBACK',S=>V(3.6,0.3,0)],[24,32,'JET-BLAST DEFLECTOR',S=>V(-11.5,2,0)],
+ [40,49,'STEAM CYLINDERS + PISTONS · EDUCATIONAL SCHEMATIC',S=>V(18,-1.7,1.2)],[40,49,'PRESSURE →',S=>V(24,-0.9,-0.9)],[61,70,'WATER BRAKE · EDUCATIONAL SCHEMATIC',S=>V(TRK-14,-1.2,0)],[69,77,'SHUTTLE RETURNS',S=>V(S.sh,0.4,0)]];
+function wrap(c,txt,w){const ws=txt.split(' '),ls=[];let l='';for(const x of ws){if(c.measureText(l+x).width>w){ls.push(l.trim());l='';}l+=x+' ';}ls.push(l.trim());return ls;}
+function overlay(t,S){
+ const W=out.width,H=out.height,u=W/1080,sc=sceneOf(t);o2.save();
+ o2.fillStyle='#000a';o2.fillRect(40*u,50*u,W-80*u,70*u);o2.fillStyle='#fff';o2.font=`600 ${34*u}px system-ui,sans-serif`;o2.textBaseline='middle';
+ o2.fillText(`${sc+1}/10 · ${NAMES[sc].toUpperCase()}`,60*u,86*u);
+ o2.font=`${42*u}px system-ui,sans-serif`;const ls=wrap(o2,CAPS[sc],W-160*u);const bh=ls.length*56*u+40*u,y0=H-bh-120*u;
+ o2.fillStyle='#000b';o2.fillRect(40*u,y0,W-80*u,bh);o2.fillStyle='#fff';ls.forEach((l,i)=>o2.fillText(l,70*u,y0+40*u+i*56*u));
+ o2.font=`600 ${30*u}px system-ui,sans-serif`;
+ for(const[a,b,txt,fn]of LAB){if(t<a||t>b)continue;const p=fn(S);lane.localToWorld(p);p.project(cam);if(p.z>1)continue;
+  const x=(p.x+1)/2*W,y=(1-p.y)/2*H,tw=o2.measureText(txt).width;const bx=Math.min(Math.max(x-tw/2,20*u),W-tw-30*u),by=y-90*u;
+  o2.strokeStyle='#4aa3ff';o2.lineWidth=3*u;o2.beginPath();o2.moveTo(x,y);o2.lineTo(bx+tw/2,by+20*u);o2.stroke();
+  o2.fillStyle='#0b1a2acc';o2.fillRect(bx-10*u,by-24*u,tw+20*u,48*u);o2.fillStyle='#bfe0ff';o2.fillText(txt,bx,by);}
+ if(t>78){o2.font=`700 ${52*u}px system-ui,sans-serif`;o2.textAlign='center';o2.fillStyle='#fff';o2.shadowColor='#000';o2.shadowBlur=12*u;o2.fillText('STEAM. SHUTTLE. THRUST. LIFTOFF.',W/2,H*0.5);}
+ o2.restore();
+}
+// ---------- procedural audio (synthetic; not recordings) ----------
+let AC,master,dest,A={},soundOn=false;
+function initAudio(){if(AC)return;AC=new AudioContext();master=AC.createGain();master.gain.value=+vol.value;master.connect(AC.destination);dest=AC.createMediaStreamDestination();master.connect(dest);
+ const nb=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate),d=nb.getChannelData(0);let s=1;for(let i=0;i<d.length;i++)d[i]=(s=s*16807%2147483647)/1073741823-1;
+ const noise=(type,f,q)=>{const src=AC.createBufferSource();src.buffer=nb;src.loop=true;const fl=AC.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q||1;const g=AC.createGain();g.gain.value=0;src.connect(fl).connect(g).connect(master);src.start();return g};
+ const osc=(f,type,lpf)=>{const o=AC.createOscillator();o.type=type;o.frequency.value=f;const fl=AC.createBiquadFilter();fl.type='lowpass';fl.frequency.value=lpf;const g=AC.createGain();g.gain.value=0;o.connect(fl).connect(g).connect(master);o.start();return{o,g}};
+ A.sea=noise('lowpass',450);A.wind=noise('bandpass',900,0.6);A.eng=noise('bandpass',1500,0.8);A.engLow=noise('lowpass',260);A.steam=noise('highpass',2800);
+ A.rum=osc(41,'sawtooth',160);A.eng2=osc(58,'sawtooth',320);A.hyd=osc(72,'sawtooth',240);A.brk=noise('bandpass',520,2);
+}
+function shot(type){if(!AC||AC.state!=='running')return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter();o.type='square';f.type='lowpass';f.frequency.value=type==='bang'?400:900;
+ o.frequency.setValueAtTime(type==='bang'?70:180,t);o.frequency.exponentialRampToValueAtTime(40,t+0.25);g.gain.setValueAtTime(type==='bang'?0.7:0.35,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.35);o.connect(f).connect(g).connect(master);o.start(t);o.stop(t+0.4);}
+const EVT=[[13.9,'clunk'],[54,'bang'],[54.1,'clunk'],[61,'clunk']];
+function audioFrame(t,S,prev,playing){if(!AC)return;const T=AC.currentTime,set=(g,v)=>g.gain.setTargetAtTime(v,T,0.07);
+ const dist=ss(60,82,t),E=S.E*(1-0.85*dist),mv=cl(S.vel/32),on=playing?1:0;
+ set(A.sea,0.16);set(A.wind,0.05);set(A.eng,0.03+0.2*E*E);set(A.engLow,0.06+0.35*E);set(A.eng2.g,0.02+0.06*E);A.eng2.o.frequency.setTargetAtTime(55+40*E,T,0.1);
+ set(A.steam,0.12*mv+0.02*S.press);set(A.rum.g,0.04*S.press+0.08*mv);set(A.hyd.g,0.05*Math.abs(Math.sin(1))*(t>24&&t<29||t>74&&t<79?1:0));
+ A.hyd.o.frequency.setTargetAtTime(60+20*S.jbd,T,0.1);set(A.brk,0.1*cl(S.brakeV/8));
+ if(playing)for(const[te,ty]of EVT)if(prev<te&&t>=te&&t-prev<0.3)shot(ty);}
+// ---------- controls ----------
+const $=id=>document.getElementById(id),vol=$('vol'),seek=$('seek');let T=0,playing=false,last=0,prevT=0,S0=state(0);
+SC.slice(0,10).forEach((s,i)=>{const b=document.createElement('button');b.textContent=i+1;b.title=NAMES[i];b.onclick=()=>{T=s;prevT=s;};$('scenes').appendChild(b);});
+$('play').onclick=()=>{if(T>=DUR-0.05)T=0;playing=true;last=performance.now();if(AC&&soundOn)AC.resume();};
+$('pause').onclick=()=>{playing=false;if(AC)AC.suspend();};
+$('restart').onclick=()=>{T=0;prevT=0;playing=true;last=performance.now();if(AC&&soundOn)AC.resume();};
+seek.oninput=()=>{T=+seek.value;prevT=T;};
+$('snd').onclick=()=>{soundOn=!soundOn;$('snd').textContent='Sound: '+(soundOn?'on':'off');if(soundOn){initAudio();AC.resume();master.gain.value=+vol.value;}else if(AC)master.gain.value=0;};
+vol.oninput=()=>{if(AC&&soundOn)master.gain.value=+vol.value;};$('q').onchange=applyQ;
+let insp=false,helpers=[];
+$('insp').onclick=()=>{insp=!insp;$('insp').classList.toggle('on',insp);$('info').style.display=insp?'block':'none';helpers.forEach(h=>scene.remove(h));helpers=[];
+ if(insp){[carrier,jet].forEach(o=>{if(o){const h=new THREE.BoxHelper(o,0xffff00);scene.add(h);helpers.push(h);}});}};
+function inspectText(S){const c=G.cfg;let s=`t=${T.toFixed(2)} scene ${sceneOf(T)+1}\ndeckY=${c.deckY} bowSign=${c.bowSign} laneZ=${(c.laneZ||0).toFixed(1)}\njetX=${S.jx.toFixed(2)} shuttleX=${S.sh.toFixed(2)} jbd=${S.jbd.toFixed(2)} hb=${S.hb.toFixed(2)} bar=${S.bar.toFixed(2)}\nwindows=${S.win.map(x=>x.toFixed(2))}\n`;
+ if(carrier){s+='CARRIER meshes:\n';carrier.traverse(m=>{if(m.isMesh)s+=` ${m.name} tris=${(m.geometry.index?.count||m.geometry.attributes.position.count)/3|0}\n`;});}
+ if(jet){s+='JET meshes:\n';jet.traverse(m=>{if(m.isMesh)s+=` ${m.name} vis=${m.visible}\n`;});}return s;}
+let rec=null,chunks=[];
+$('rec').onclick=async()=>{
+ if(rec){rec.stop();return;}
+ if(!window.MediaRecorder||!out.captureStream){alert('MediaRecorder / captureStream not supported in this browser.');return;}
+ const st=out.captureStream(30);if(soundOn&&dest)dest.stream.getAudioTracks().forEach(t=>st.addTrack(t));
+ const mt=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
+ if(!mt){alert('No WebM recording codec available.');return;}
+ try{rec=new MediaRecorder(st,{mimeType:mt,videoBitsPerSecond:12e6});}catch(e){alert('Recorder error: '+e.message);return;}
+ chunks=[];rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+ rec.onstop=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(chunks,{type:'video/webm'}));a.download='carrier-catapult-launch.webm';a.click();rec=null;$('rec').textContent='Record WebM';$('rec').classList.remove('on');};
+ rec.start(500);$('rec').textContent='Stop recording';$('rec').classList.add('on');T=0;prevT=0;playing=true;last=performance.now();if(AC&&soundOn)AC.resume();};
+function frame(now){
+ requestAnimationFrame(frame);
+ if(playing){T+=Math.min(0.1,(now-last)/1000);last=now;if(T>=DUR){T=DUR;playing=false;if(rec)rec.stop();if(AC)AC.suspend();}}
+ const S=applyState(T);audioFrame(T,S,prevT,playing);prevT=T;
+ if(G.ready){renderer.render(scene,cam);o2.drawImage(gl,0,0,out.width,out.height);overlay(T,S);}else{o2.fillStyle='#0c1117';o2.fillRect(0,0,out.width,out.height);}
+ seek.value=T;const f=x=>`${Math.floor(x/60)}:${(x%60).toFixed(1).padStart(4,'0')}`;$('time').textContent=`${f(T)} / ${f(DUR)}`;
+ if(insp){helpers.forEach(h=>h.update());$('info').textContent=inspectText(S);}
+}
+applyQ();build().then(()=>{applyQ();}).catch(e=>say('Build error: '+e.message));requestAnimationFrame(frame);
+</script></body></html>
